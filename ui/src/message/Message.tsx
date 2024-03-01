@@ -7,7 +7,7 @@ import TimeAgo from 'react-timeago';
 import Container from '../common/Container';
 import * as config from '../config';
 import {Markdown} from '../common/Markdown';
-import {RenderMode, contentType} from './extras';
+import {RenderMode, contentType, url} from './extras';
 import {IMessageExtras} from '../types';
 
 const styles = (theme: Theme) =>
@@ -66,6 +66,10 @@ const styles = (theme: Theme) =>
                 maxWidth: '100%',
             },
         },
+        link: {
+            color: 'inherit',
+            textDecoration: 'none',
+        },
     });
 
 interface IProps {
@@ -106,8 +110,24 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
         }
     };
 
+    private renderTitle = () => {
+        const title = <Typography className={`${this.props.classes.headerTitle} title`} variant="h5">
+            {this.props.title}
+        </Typography>
+        const notificationUrl = url(this.props.extras);
+        if (notificationUrl) {
+            return <a href={notificationUrl}
+                      target={'_blank'}
+                      rel={'noreferrer'}
+                      className={`${this.props.classes.headerTitle} ${this.props.classes.link} title`}>
+                {title}
+            </a>
+        }
+        return title;
+    }
+
     public render(): React.ReactNode {
-        const {fDelete, classes, title, date, image, priority} = this.props;
+        const {fDelete, classes, date, image, priority} = this.props;
 
         return (
             <div className={`${classes.wrapperPadding} message`} ref={(ref) => (this.node = ref)}>
@@ -131,9 +151,7 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                     </div>
                     <div className={classes.messageContentWrapper}>
                         <div className={classes.header}>
-                            <Typography className={`${classes.headerTitle} title`} variant="h5">
-                                {title}
-                            </Typography>
+                            {this.renderTitle()}
                             <Typography variant="body1" className={classes.date}>
                                 <TimeAgo date={date} />
                             </Typography>
