@@ -194,6 +194,10 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 			message.DELETE("", messageHandler.DeleteMessages)
 
 			message.DELETE("/:id", messageHandler.DeleteMessage)
+
+			message.POST("/:id/postpone", messageHandler.PostponeMessage)
+
+			message.DELETE("/:id/postpone", messageHandler.DeleteMessagePostponement)
 		}
 
 		clientAuth.GET("/stream", streamHandler.Handle)

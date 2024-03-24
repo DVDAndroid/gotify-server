@@ -13,6 +13,7 @@ type Message struct {
 	Priority      int
 	Extras        []byte
 	Date          time.Time
+	PostponedAt   *time.Time
 }
 
 // MessageExternal Model
@@ -63,4 +64,6 @@ type MessageExternal struct {
 	// required: true
 	// example: 2018-02-27T19:36:10.5045044+01:00
 	Date time.Time `json:"date"`
+	// The date of the message postponed to.
+	PostponedAt *time.Time `json:"postponed_at"`
 }

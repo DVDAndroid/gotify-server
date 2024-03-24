@@ -16,15 +16,16 @@ import (
 
 // The MessageDatabase interface for encapsulating database access.
 type MessageDatabase interface {
-	GetMessagesByApplicationSince(appID uint, limit int, since uint) ([]*model.Message, error)
+	GetMessagesByApplicationSince(appID uint, limit int, since uint, postponed *string) ([]*model.Message, error)
 	GetApplicationByID(id uint) (*model.Application, error)
-	GetMessagesByUserSince(userID uint, limit int, since uint) ([]*model.Message, error)
+	GetMessagesByUserSince(userID uint, limit int, since uint, postponed *string) ([]*model.Message, error)
 	DeleteMessageByID(id uint) error
 	GetMessageByID(id uint) (*model.Message, error)
 	DeleteMessagesByUser(userID uint) error
 	DeleteMessagesByApplication(applicationID uint) error
 	CreateMessage(message *model.Message) error
 	GetApplicationByToken(token string) (*model.Application, error)
+	UpdateMessagePostponement(id uint, postponedAt *time.Time) error
 }
 
 var timeNow = time.Now
@@ -41,8 +42,9 @@ type MessageAPI struct {
 }
 
 type pagingParams struct {
-	Limit int  `form:"limit" binding:"min=1,max=200"`
-	Since uint `form:"since" binding:"min=0"`
+	Limit     int     `form:"limit" binding:"min=1,max=200"`
+	Since     uint    `form:"since" binding:"min=0"`
+	Postponed *string `form:"postponed"`
 }
 
 // GetMessages returns all messages from a user.
@@ -69,6 +71,11 @@ type pagingParams struct {
 //	  required: false
 //	  type: integer
 //	  format: int64
+//	- name: postponed
+//	  in: query
+//	  description: return all, only postponed or only not postponed messages
+//	  required: false
+//	  type: string
 //	responses:
 //	  200:
 //	    description: Ok
@@ -90,7 +97,7 @@ func (a *MessageAPI) GetMessages(ctx *gin.Context) {
 	userID := auth.GetUserID(ctx)
 	withPaging(ctx, func(params *pagingParams) {
 		// the +1 is used to check if there are more messages and will be removed on buildWithPaging
-		messages, err := a.DB.GetMessagesByUserSince(userID, params.Limit+1, params.Since)
+		messages, err := a.DB.GetMessagesByUserSince(userID, params.Limit+1, params.Since, params.Postponed)
 		if success := successOrAbort(ctx, 500, err); !success {
 			return
 		}
@@ -156,6 +163,11 @@ func withPaging(ctx *gin.Context, f func(pagingParams *pagingParams)) {
 //	  required: false
 //	  type: integer
 //	  format: int64
+//	- name: postponed
+//	  in: query
+//	  description: return all, only postponed or only not postponed messages
+//	  required: false
+//	  type: string
 //	responses:
 //	  200:
 //	    description: Ok
@@ -186,7 +198,7 @@ func (a *MessageAPI) GetMessagesWithApplication(ctx *gin.Context) {
 			}
 			if app != nil && app.UserID == auth.GetUserID(ctx) {
 				// the +1 is used to check if there are more messages and will be removed on buildWithPaging
-				messages, err := a.DB.GetMessagesByApplicationSince(id, params.Limit+1, params.Since)
+				messages, err := a.DB.GetMessagesByApplicationSince(id, params.Limit+1, params.Since, params.Postponed)
 				if success := successOrAbort(ctx, 500, err); !success {
 					return
 				}
@@ -388,6 +400,51 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 	}
 }
 
+// / postponed message
+func (a *MessageAPI) postponeMessage(ctx *gin.Context, postponedAt *time.Time) {
+	withID(ctx, "id", func(id uint) {
+		msg, err := a.DB.GetMessageByID(id)
+		if success := successOrAbort(ctx, 500, err); !success {
+			return
+		}
+		if msg == nil {
+			ctx.AbortWithError(404, errors.New("message does not exist"))
+			return
+		}
+		app, err := a.DB.GetApplicationByID(msg.ApplicationID)
+		if success := successOrAbort(ctx, 500, err); !success {
+			return
+		}
+		if app != nil && app.UserID == auth.GetUserID(ctx) {
+			successOrAbort(ctx, 500, a.DB.UpdateMessagePostponement(id, postponedAt))
+		} else {
+			ctx.AbortWithError(404, errors.New("message does not exist"))
+		}
+	})
+}
+
+func (a *MessageAPI) PostponeMessage(ctx *gin.Context) {
+	at := ctx.Query("at")
+	if at == "" {
+		ctx.AbortWithError(400, errors.New("at parameter is required"))
+		return
+	}
+	postponedAt, err := time.Parse(time.RFC3339, at)
+	if err != nil {
+		ctx.AbortWithError(400, errors.New("invalid time format. use RFC3339 format"))
+		return
+	}
+	if postponedAt.Before(timeNow()) {
+		ctx.AbortWithError(400, errors.New("postponed time must be in the future"))
+		return
+	}
+	a.postponeMessage(ctx, &postponedAt)
+}
+
+func (a *MessageAPI) DeleteMessagePostponement(ctx *gin.Context) {
+	a.postponeMessage(ctx, nil)
+}
+
 func toInternalMessage(msg *model.MessageExternal) *model.Message {
 	res := &model.Message{
 		ID:            msg.ID,
@@ -395,6 +452,7 @@ func toInternalMessage(msg *model.MessageExternal) *model.Message {
 		Message:       msg.Message,
 		Title:         msg.Title,
 		Date:          msg.Date,
+		PostponedAt:   msg.PostponedAt,
 	}
 	if msg.Priority != nil {
 		res.Priority = *msg.Priority
@@ -414,6 +472,7 @@ func toExternalMessage(msg *model.Message) *model.MessageExternal {
 		Title:         msg.Title,
 		Priority:      &msg.Priority,
 		Date:          msg.Date,
+		PostponedAt:   msg.PostponedAt,
 	}
 	if len(msg.Extras) != 0 {
 		res.Extras = make(map[string]interface{})

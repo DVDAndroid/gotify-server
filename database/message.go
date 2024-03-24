@@ -3,6 +3,7 @@ package database
 import (
 	"github.com/gotify/server/v2/model"
 	"github.com/jinzhu/gorm"
+	"time"
 )
 
 // GetMessageByID returns the messages for the given id or nil.
@@ -27,7 +28,7 @@ func (d *GormDatabase) CreateMessage(message *model.Message) error {
 func (d *GormDatabase) GetMessagesByUser(userID uint) ([]*model.Message, error) {
 	var messages []*model.Message
 	err := d.DB.Joins("JOIN applications ON applications.user_id = ?", userID).
-		Where("messages.application_id = applications.id").Order("id desc").Find(&messages).Error
+		Where("messages.application_id = applications.id ").Order("id desc").Find(&messages).Error
 	if err == gorm.ErrRecordNotFound {
 		err = nil
 	}
@@ -36,12 +37,19 @@ func (d *GormDatabase) GetMessagesByUser(userID uint) ([]*model.Message, error) 
 
 // GetMessagesByUserSince returns limited messages from a user.
 // If since is 0 it will be ignored.
-func (d *GormDatabase) GetMessagesByUserSince(userID uint, limit int, since uint) ([]*model.Message, error) {
+func (d *GormDatabase) GetMessagesByUserSince(userID uint, limit int, since uint, postponed *string) ([]*model.Message, error) {
 	var messages []*model.Message
 	db := d.DB.Joins("JOIN applications ON applications.user_id = ?", userID).
 		Where("messages.application_id = applications.id").Order("id desc").Limit(limit)
 	if since != 0 {
 		db = db.Where("messages.id < ?", since)
+	}
+	if postponed != nil && *postponed != "all" {
+		if *postponed == "true" || *postponed == "" {
+			db = db.Where("postponed_at IS NOT NULL")
+		} else {
+			db = db.Where("postponed_at IS NULL")
+		}
 	}
 	err := db.Find(&messages).Error
 	if err == gorm.ErrRecordNotFound {
@@ -62,11 +70,18 @@ func (d *GormDatabase) GetMessagesByApplication(tokenID uint) ([]*model.Message,
 
 // GetMessagesByApplicationSince returns limited messages from an application.
 // If since is 0 it will be ignored.
-func (d *GormDatabase) GetMessagesByApplicationSince(appID uint, limit int, since uint) ([]*model.Message, error) {
+func (d *GormDatabase) GetMessagesByApplicationSince(appID uint, limit int, since uint, postponed *string) ([]*model.Message, error) {
 	var messages []*model.Message
 	db := d.DB.Where("application_id = ?", appID).Order("id desc").Limit(limit)
 	if since != 0 {
 		db = db.Where("messages.id < ?", since)
+	}
+	if postponed != nil && *postponed != "all" {
+		if *postponed == "true" || *postponed == "" {
+			db = db.Where("postponed_at IS NOT NULL")
+		} else {
+			db = db.Where("postponed_at IS NULL")
+		}
 	}
 	err := db.Find(&messages).Error
 	if err == gorm.ErrRecordNotFound {
@@ -92,4 +107,8 @@ func (d *GormDatabase) DeleteMessagesByUser(userID uint) error {
 		d.DeleteMessagesByApplication(app.ID)
 	}
 	return nil
+}
+
+func (d *GormDatabase) UpdateMessagePostponement(id uint, postponedAt *time.Time) error {
+	return d.DB.Model(&model.Message{}).Where("id = ?", id).Update("postponed_at", postponedAt).Error
 }

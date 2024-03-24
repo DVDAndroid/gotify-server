@@ -10,3 +10,5 @@ coverage.txt
 config.yml
 data/
 images/
+
+*.http
