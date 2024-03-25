@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gotify/server/v2/api/stream"
 	"math/rand"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/gotify/server/v2/model"
 	"github.com/gotify/server/v2/router"
 	"github.com/gotify/server/v2/runner"
+	"github.com/gotify/server/v2/scheduler"
 )
 
 var (
@@ -48,8 +50,13 @@ func main() {
 	}
 	defer db.Close()
 
-	engine, closeable := router.Create(db, vInfo, conf)
-	defer closeable()
+	streamHandler := stream.New(time.Duration(conf.Server.Stream.PingPeriodSeconds)*time.Second, 15*time.Second, conf.Server.Stream.AllowedOrigins)
+
+	jobScheduler, schedulerCloseable := scheduler.Init(db, streamHandler)
+	defer schedulerCloseable()
+
+	engine, routerCloseable := router.Create(db, vInfo, conf, streamHandler, jobScheduler)
+	defer routerCloseable()
 
 	if err := runner.Run(engine, conf); err != nil {
 		fmt.Println("Server error: ", err)

@@ -39,10 +39,7 @@ func (s *IntegrationSuite) BeforeTest(string, string) {
 	s.db = testdb.NewDBWithDefaultUser(s.T())
 	assert.Nil(s.T(), err)
 
-	g, closable := Create(s.db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config.Configuration{PassStrength: 5},
-	)
+	g, closable := Create(s.db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config.Configuration{PassStrength: 5}, nil)
 	s.closable = closable
 	s.server = httptest.NewServer(g)
 }
@@ -90,10 +87,7 @@ func TestHeadersFromConfiguration(t *testing.T) {
 		"Access-Control-Allow-Origin": "http://test1.com",
 	}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -119,10 +113,7 @@ func TestHeadersFromCORSConfig(t *testing.T) {
 	config := config.Configuration{PassStrength: 5}
 	config.Server.Cors.AllowOrigins = []string{"---", "http://test.com"}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -148,10 +139,7 @@ func TestInvalidOrigin(t *testing.T) {
 	config := config.Configuration{PassStrength: 5}
 	config.Server.Cors.AllowOrigins = []string{"---", "http://test.com"}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -180,10 +168,7 @@ func TestAllowedOriginFromResponseHeaders(t *testing.T) {
 		"Access-Control-Allow-Methods": "GET,POST",
 	}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -218,10 +203,7 @@ func TestAllowedWildcardOriginInHeader(t *testing.T) {
 		"Access-Control-Allow-Methods": "GET,POST",
 	}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -247,10 +229,7 @@ func TestCORSHeaderRegex(t *testing.T) {
 	config := config.Configuration{PassStrength: 5}
 	config.Server.Cors.AllowOrigins = []string{"---", "^http://test\\d{3}.com$"}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -285,10 +264,7 @@ func TestCORSConfigOverride(t *testing.T) {
 	config.Server.Cors.AllowMethods = []string{"GET", "OPTIONS"}
 	config.Server.Cors.AllowHeaders = []string{"Content-Type"}
 
-	g, closable := Create(db.GormDatabase,
-		&model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"},
-		&config,
-	)
+	g, closable := Create(db.GormDatabase, &model.VersionInfo{Version: "1.0.0", BuildDate: "2018-02-20-17:30:47", Commit: "asdasds"}, &config, nil)
 	server := httptest.NewServer(g)
 
 	defer func() {
@@ -362,7 +338,7 @@ func (s *IntegrationSuite) TestPluginLoadFail_expectPanic() {
 	assert.Panics(s.T(), func() {
 		Create(db.GormDatabase, new(model.VersionInfo), &config.Configuration{
 			PluginsDir: "<THIS_PATH_IS_MALFORMED>",
-		})
+		}, nil)
 	})
 }
 

@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"github.com/gotify/server/v2/scheduler"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -24,7 +25,7 @@ import (
 )
 
 // Create creates the gin engine with all routes.
-func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Configuration) (*gin.Engine, func()) {
+func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Configuration, streamHandler *stream.API, scheduler scheduler.Scheduler) (*gin.Engine, func()) {
 	g := gin.New()
 
 	g.RemoteIPHeaders = []string{"X-Forwarded-For"}
@@ -63,8 +64,6 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 			ctx.Abort()
 		})
 	}
-	streamHandler := stream.New(
-		time.Duration(conf.Server.Stream.PingPeriodSeconds)*time.Second, 15*time.Second, conf.Server.Stream.AllowedOrigins)
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		for range ticker.C {
@@ -74,7 +73,7 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 		}
 	}()
 	authentication := auth.Auth{DB: db}
-	messageHandler := api.MessageAPI{Notifier: streamHandler, DB: db}
+	messageHandler := api.MessageAPI{Notifier: streamHandler, DB: db, Scheduler: scheduler}
 	healthHandler := api.HealthAPI{DB: db}
 	clientHandler := api.ClientAPI{
 		DB:            db,

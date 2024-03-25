@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"github.com/gotify/server/v2/scheduler"
 	"strconv"
 	"strings"
 	"time"
@@ -30,15 +31,11 @@ type MessageDatabase interface {
 
 var timeNow = time.Now
 
-// Notifier notifies when a new message was created.
-type Notifier interface {
-	Notify(userID uint, message *model.MessageExternal)
-}
-
 // The MessageAPI provides handlers for managing messages.
 type MessageAPI struct {
-	DB       MessageDatabase
-	Notifier Notifier
+	DB        MessageDatabase
+	Notifier  Notifier
+	Scheduler scheduler.Scheduler
 }
 
 type pagingParams struct {
@@ -231,6 +228,7 @@ func (a *MessageAPI) GetMessagesWithApplication(ctx *gin.Context) {
 //	        $ref: "#/definitions/Error"
 func (a *MessageAPI) DeleteMessages(ctx *gin.Context) {
 	userID := auth.GetUserID(ctx)
+	a.Scheduler.DeleteMessagesScheduleByUser(userID)
 	successOrAbort(ctx, 500, a.DB.DeleteMessagesByUser(userID))
 }
 
@@ -275,6 +273,7 @@ func (a *MessageAPI) DeleteMessageWithApplication(ctx *gin.Context) {
 			return
 		}
 		if application != nil && application.UserID == auth.GetUserID(ctx) {
+			a.Scheduler.DeleteMessagesScheduleByApplication(id)
 			successOrAbort(ctx, 500, a.DB.DeleteMessagesByApplication(id))
 		} else {
 			ctx.AbortWithError(404, errors.New("application does not exists"))
@@ -331,6 +330,7 @@ func (a *MessageAPI) DeleteMessage(ctx *gin.Context) {
 			return
 		}
 		if app != nil && app.UserID == auth.GetUserID(ctx) {
+			a.Scheduler.DeleteMessageSchedule(msg)
 			successOrAbort(ctx, 500, a.DB.DeleteMessageByID(id))
 		} else {
 			ctx.AbortWithError(404, errors.New("message does not exist"))
@@ -395,8 +395,12 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 		if success := successOrAbort(ctx, 500, a.DB.CreateMessage(msgInternal)); !success {
 			return
 		}
-		a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal))
-		ctx.JSON(200, toExternalMessage(msgInternal))
+		if message.PostponedAt != nil {
+			a.Scheduler.ScheduleMessage(msgInternal.ID, *message.PostponedAt)
+		} else {
+			a.Notifier.Notify(auth.GetUserID(ctx), scheduler.ToExternalMessage(msgInternal))
+		}
+		ctx.JSON(200, scheduler.ToExternalMessage(msgInternal))
 	}
 }
 
@@ -416,6 +420,10 @@ func (a *MessageAPI) postponeMessage(ctx *gin.Context, postponedAt *time.Time) {
 			return
 		}
 		if app != nil && app.UserID == auth.GetUserID(ctx) {
+			a.Scheduler.DeleteMessageSchedule(msg)
+			if postponedAt != nil {
+				a.Scheduler.ScheduleMessage(msg.ID, *postponedAt)
+			}
 			successOrAbort(ctx, 500, a.DB.UpdateMessagePostponement(id, postponedAt))
 		} else {
 			ctx.AbortWithError(404, errors.New("message does not exist"))
@@ -464,27 +472,10 @@ func toInternalMessage(msg *model.MessageExternal) *model.Message {
 	return res
 }
 
-func toExternalMessage(msg *model.Message) *model.MessageExternal {
-	res := &model.MessageExternal{
-		ID:            msg.ID,
-		ApplicationID: msg.ApplicationID,
-		Message:       msg.Message,
-		Title:         msg.Title,
-		Priority:      &msg.Priority,
-		Date:          msg.Date,
-		PostponedAt:   msg.PostponedAt,
-	}
-	if len(msg.Extras) != 0 {
-		res.Extras = make(map[string]interface{})
-		json.Unmarshal(msg.Extras, &res.Extras)
-	}
-	return res
-}
-
 func toExternalMessages(msg []*model.Message) []*model.MessageExternal {
 	res := make([]*model.MessageExternal, len(msg))
 	for i := range msg {
-		res[i] = toExternalMessage(msg[i])
+		res[i] = scheduler.ToExternalMessage(msg[i])
 	}
 	return res
 }
