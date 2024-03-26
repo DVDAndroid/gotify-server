@@ -3156,6 +3156,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-timeago@npm:^4.1.7":
+  version: 4.1.7
+  resolution: "@types/react-timeago@npm:4.1.7"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 10c0/0f5965a0cdcced841889b45003c91643392caffc47470ed6e84784b940b3e8fe2031bce44a6c135e3adf6b5c21f46eb20c3b9211f1ec93c86f8e67ca732aed71
+  languageName: node
+  linkType: hard
+
 "@types/react-transition-group@npm:^4.2.0":
   version: 4.4.4
   resolution: "@types/react-transition-group@npm:4.4.4"
@@ -8326,6 +8335,7 @@ __metadata:
     "@types/react-dom": "npm:^16.9.8"
     "@types/react-infinite": "npm:0.0.35"
     "@types/react-router-dom": "npm:^5.1.7"
+    "@types/react-timeago": "npm:^4.1.7"
     "@types/remove-markdown": "npm:^0.3.0"
     "@types/rimraf": "npm:^3.0.0"
     "@typescript-eslint/eslint-plugin": "npm:^4.1.0"
@@ -8357,7 +8367,7 @@ __metadata:
     react-router: "npm:^5.2.0"
     react-router-dom: "npm:^5.2.0"
     react-scripts: "npm:^4.0.3"
-    react-timeago: "npm:^6.2.1"
+    react-timeago: "npm:^7.2.0"
     remark-gfm: "npm:^1.0.0"
     remove-markdown: "npm:^0.3.0"
     rimraf: "npm:^3.0.2"
@@ -14280,12 +14290,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-timeago@npm:^6.2.1":
-  version: 6.2.1
-  resolution: "react-timeago@npm:6.2.1"
+"react-timeago@npm:^7.2.0":
+  version: 7.2.0
+  resolution: "react-timeago@npm:7.2.0"
   peerDependencies:
-    react: ^16.0.0 || ^17.0.0
-  checksum: 10c0/5e1a49947546f8f0a55b39e5052ec2a5c599d2aaac5204aedaf475454e4915c1cf65706294c18a856073808f17cf49c5571136b8bdf035287bcc8e87fe952586
+    react: ^16.0.0 || ^17.0.0 || ^18.0.0
+  checksum: 10c0/89051a12296934e3400319ca7887a0f3ae5a779fd9456769b526ac4771c47a431fb4c68f56ac9726e23d65aad55538f7e2f1c6adfa83224bc8f6278775c26fa3
   languageName: node
   linkType: hard
 

@@ -174,7 +174,7 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                         <div className={classes.header}>
                             {this.renderTitle()}
                             <Typography variant="body1" className={classes.date}>
-                                <TimeAgo date={date}/>
+                                <TimeAgo date={date}title={new Date(date).toLocaleString()} />
                             </Typography>
                             {this.renderPostponeIcon(fPostpone, postponed_at)}
                             <IconButton onClick={fDelete} className={`${classes.actionIcon} delete`}>
