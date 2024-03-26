@@ -135,7 +135,7 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                                 {title}
                             </Typography>
                             <Typography variant="body1" className={classes.date}>
-                                <TimeAgo date={date} />
+                                <TimeAgo date={date} title={new Date(date).toLocaleString()} />
                             </Typography>
                             <IconButton onClick={fDelete} className={`${classes.trash} delete`}>
                                 <Delete />
