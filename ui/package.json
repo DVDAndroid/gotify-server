@@ -5,10 +5,13 @@
   "homepage": ".",
   "proxy": "http://localhost:80",
   "dependencies": {
-    "@material-ui/core": "^4.11.4",
-    "@material-ui/icons": "^4.9.1",
+    "@date-io/dayjs": "^3.0.0",
+    "@material-ui/core": "patch:@material-ui/core@npm%3A4.12.4#~/.yarn/patches/@material-ui-core-npm-4.12.4-5b6f139342.patch",
+    "@material-ui/icons": "^4.11.3",
+    "@material-ui/pickers": "^4.0.0-alpha.13",
     "axios": "^0.21.1",
     "codemirror": "^5.61.1",
+    "dayjs": "^1.11.10",
     "detect-browser": "^5.2.0",
     "js-base64": "^3.6.1",
     "mobx": "^5.15.6",
@@ -83,5 +86,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "packageManager": "yarn@4.1.1"
 }

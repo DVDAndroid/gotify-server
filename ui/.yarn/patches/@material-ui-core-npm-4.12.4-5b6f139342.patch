@@ -1,0 +1,64 @@
+# workaround for https://github.com/mui/material-ui/pull/21610
+diff --git a/Unstable_TrapFocus/Unstable_TrapFocus.js b/Unstable_TrapFocus/Unstable_TrapFocus.js
+index 4737ac0733210ef3cf824d6bb720e957092ce524..0e158df57ebb7d3fb5d5f2eb211c2e2df6eba89c 100644
+--- a/Unstable_TrapFocus/Unstable_TrapFocus.js
++++ b/Unstable_TrapFocus/Unstable_TrapFocus.js
+@@ -41,6 +41,7 @@ function Unstable_TrapFocus(props) {
+   var sentinelStart = React.useRef(null);
+   var sentinelEnd = React.useRef(null);
+   var nodeToRestore = React.useRef();
++  var reactFocusEventTarget = React.useRef(null);
+   var rootRef = React.useRef(null); // can be removed once we drop support for non ref forwarding class components
+
+   var handleOwnRef = React.useCallback(function (instance) {
+@@ -84,7 +85,7 @@ function Unstable_TrapFocus(props) {
+       rootRef.current.focus();
+     }
+
+-    var contain = function contain() {
++    var contain = function contain(nativeEvent) {
+       var rootElement = rootRef.current; // Cleanup functions are executed lazily in React 17.
+       // Contain can be called between the component being unmounted and its cleanup function being run.
+
+@@ -98,6 +99,16 @@ function Unstable_TrapFocus(props) {
+       }
+
+       if (rootRef.current && !rootRef.current.contains(doc.activeElement)) {
++        // if the focus event is not coming from inside the children's react tree, reset the refs
++        if (
++            (nativeEvent && reactFocusEventTarget.current !== nativeEvent.target) ||
++            doc.activeElement !== reactFocusEventTarget.current
++        ) {
++          reactFocusEventTarget.current = null;
++        } else if (reactFocusEventTarget.current !== null) {
++          return;
++        }
++
+         rootRef.current.focus();
+       }
+     };
+@@ -150,12 +161,23 @@ function Unstable_TrapFocus(props) {
+       }
+     };
+   }, [disableAutoFocus, disableEnforceFocus, disableRestoreFocus, isEnabled, open]);
++
++  const onFocus = (event) => {
++    reactFocusEventTarget.current = event.target;
++
++    const childrenPropsHandler = children.props.onFocus;
++    if (childrenPropsHandler) {
++      childrenPropsHandler(event);
++    }
++  };
++
+   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+     tabIndex: 0,
+     ref: sentinelStart,
+     "data-test": "sentinelStart"
+   }), /*#__PURE__*/React.cloneElement(children, {
+-    ref: handleRef
++    ref: handleRef,
++    onFocus
+   }), /*#__PURE__*/React.createElement("div", {
+     tabIndex: 0,
+     ref: sentinelEnd,

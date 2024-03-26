@@ -12,6 +12,7 @@ import {observable} from 'mobx';
 import ReactInfinite from 'react-infinite';
 import {IMessage} from '../types';
 import ConfirmDialog from '../common/ConfirmDialog';
+import DateTimeDialog from "../common/DateTimeDialog";
 
 type IProps = RouteComponentProps<{id: string}>;
 
@@ -25,6 +26,8 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
     private heights: Record<string, number> = {};
     @observable
     private deleteAll = false;
+    @observable
+    private postponeMessageDialog?: IMessage;
 
     private static appId(props: IProps) {
         if (props === undefined) {
@@ -117,6 +120,16 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
                         fOnSubmit={() => messagesStore.removeByApp(appId)}
                     />
                 )}
+                {this.postponeMessageDialog && (
+                    <DateTimeDialog title="Postpone message"
+                                    defaultDatetime={this.postponeMessageDialog.postponed_at}
+                                    fClose={() => (this.postponeMessageDialog = undefined)}
+                                    fOnSubmit={(postponedAt) => {
+                                        messagesStore.postponeSingle(this.postponeMessageDialog!, postponedAt);
+                                        messagesStore.refreshByApp(appId);
+                                    }}
+                    />
+                )}
             </DefaultPage>
         );
     }
@@ -143,8 +156,10 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
                 }
             }}
             fDelete={this.deleteMessage(message)}
+            fPostpone={() => (this.postponeMessageDialog = message)}
             title={message.title}
             date={message.date}
+            postponed_at={message.postponed_at}
             content={message.message}
             image={message.image}
             extras={message.extras}

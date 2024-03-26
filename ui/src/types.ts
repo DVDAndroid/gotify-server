@@ -35,6 +35,7 @@ export interface IMessage {
     title: string;
     priority: number;
     date: string;
+    postponed_at?: string;
     image?: string;
     extras?: IMessageExtras;
 }
@@ -53,6 +54,7 @@ export interface IPaging {
     since?: number;
     size: number;
     limit: number;
+    postponed?: 'all' | 'true' | 'false';
 }
 
 export interface IUser {

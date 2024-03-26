@@ -12,7 +12,12 @@ export const registerReactions = (stores: StoreMapping) => {
     };
     const loadAll = () => {
         stores.wsStore.listen((message) => {
-            stores.messagesStore.publishSingleMessage(message);
+            if (message.postponed_at) {
+                const currAppId = parseInt(document.location.href.split('/').pop() ?? "-1");
+                stores.messagesStore.refreshByApp(isNaN(currAppId) ? -1 : currAppId);
+            } else {
+                stores.messagesStore.publishSingleMessage(message);
+            }
             Notifications.notifyNewMessage(message);
             if (message.priority >= 4) {
                 const src = 'static/notification.ogg';

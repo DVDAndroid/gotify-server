@@ -15,6 +15,8 @@ import {MessagesStore} from './message/MessagesStore';
 import {ClientStore} from './client/ClientStore';
 import {PluginStore} from './plugin/PluginStore';
 import {registerReactions} from './reactions';
+import {LocalizationProvider} from "@material-ui/pickers";
+import DayjsUtils from "@material-ui/pickers/adapter/dayjs";
 
 const devUrl = 'http://localhost:3000/';
 
@@ -69,7 +71,9 @@ const initStores = (): StoreMapping => {
 
     ReactDOM.render(
         <InjectProvider stores={stores}>
-            <Layout />
+            <LocalizationProvider dateAdapter={DayjsUtils}>
+                <Layout/>
+            </LocalizationProvider>
         </InjectProvider>,
         document.getElementById('root')
     );

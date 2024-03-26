@@ -1,7 +1,7 @@
 import IconButton from '@material-ui/core/IconButton';
 import {createStyles, Theme, withStyles, WithStyles} from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import Delete from '@material-ui/icons/Delete';
+import {History, Schedule, Update, Delete} from "@material-ui/icons";
 import React from 'react';
 import TimeAgo from 'react-timeago';
 import Container from '../common/Container';
@@ -20,7 +20,7 @@ const styles = (theme: Theme) =>
         headerTitle: {
             flex: 1,
         },
-        trash: {
+        actionIcon: {
             marginTop: -15,
             marginRight: -15,
         },
@@ -78,7 +78,9 @@ interface IProps {
     date: string;
     content: string;
     priority: number;
+    postponed_at?: string;
     fDelete: VoidFunction;
+    fPostpone: VoidFunction;
     extras?: IMessageExtras;
     height: (height: number) => void;
 }
@@ -126,8 +128,27 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
         return title;
     }
 
+    private renderPostponeIcon = (fPostpone: VoidFunction, postponed_at: string | undefined) => {
+        let icon = <Schedule/>;
+        let title = "Postpone message";
+        if (postponed_at) {
+            const postponedDate = new Date(postponed_at);
+            title  = "Postponed at " +  postponedDate.toLocaleString();
+            if (postponedDate.getTime() > new Date().getTime()) {
+                icon = <Update style={{color: '#03a9f4'}}/>;
+            } else {
+                icon = <History style={{color: '#ffc107'}}/>;
+            }
+        }
+        return <IconButton onClick={fPostpone}
+                           title={title}
+                           className={this.props.classes.actionIcon}>
+            {icon}
+        </IconButton>;
+    }
+
     public render(): React.ReactNode {
-        const {fDelete, classes, date, image, priority} = this.props;
+        const {fDelete, fPostpone, classes, date, image, priority, postponed_at} = this.props;
 
         return (
             <div className={`${classes.wrapperPadding} message`} ref={(ref) => (this.node = ref)}>
@@ -153,10 +174,11 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                         <div className={classes.header}>
                             {this.renderTitle()}
                             <Typography variant="body1" className={classes.date}>
-                                <TimeAgo date={date} />
+                                <TimeAgo date={date}/>
                             </Typography>
-                            <IconButton onClick={fDelete} className={`${classes.trash} delete`}>
-                                <Delete />
+                            {this.renderPostponeIcon(fPostpone, postponed_at)}
+                            <IconButton onClick={fDelete} className={`${classes.actionIcon} delete`}>
+                                <Delete/>
                             </IconButton>
                         </div>
                         <Typography component="div" className={`${classes.content} content`}>

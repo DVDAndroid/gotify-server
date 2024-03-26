@@ -95,6 +95,22 @@ export class MessagesStore {
     };
 
     @action
+    public postponeSingle = async (message: IMessage, postponedAt: Date | undefined) => {
+        try {
+            const postpone = config.get('url') + 'message/' + message.id + '/postpone';
+            if (postponedAt) {
+                await axios.post(postpone + '?at=' + postponedAt.toISOString());
+                this.snack('Message postponed');
+            } else {
+                await axios.delete(postpone);
+                this.snack('Postponement removed');
+            }
+        } catch (e) {
+            // ignored, time in the past: there's already a snackbar message
+        }
+    }
+
+    @action
     public clearAll = () => {
         this.state = {};
         this.createEmptyStatesForApps(this.appStore.getItems());
