@@ -65,5 +65,5 @@ type MessageExternal struct {
 	// example: 2018-02-27T19:36:10.5045044+01:00
 	Date time.Time `json:"date"`
 	// The date of the message postponed to.
-	PostponedAt *time.Time `json:"postponed_at"`
+	PostponedAt *time.Time `form:"postponed_at" query:"postponed_at" json:"postponed_at"`
 }
