@@ -42,6 +42,7 @@ export interface IMessage {
     title: string;
     priority: number;
     date: string;
+    postponed_at?: string | null;
     image?: string;
     extras?: IMessageExtras;
 }

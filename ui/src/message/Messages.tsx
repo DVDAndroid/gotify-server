@@ -8,6 +8,7 @@ import Message from './Message';
 import {observer} from 'mobx-react-lite';
 import {IMessage} from '../types';
 import ConfirmDialog from '../common/ConfirmDialog';
+import DateTimeDialog from '../common/DateTimeDialog';
 import LoadingSpinner from '../common/LoadingSpinner';
 import {useStores} from '../stores';
 import {Virtuoso} from 'react-virtuoso';
@@ -22,6 +23,7 @@ const Messages = observer(() => {
 
     const [deleteAll, setDeleteAll] = React.useState(false);
     const [pushMessageOpen, setPushMessageOpen] = React.useState(false);
+    const [postponeMessage, setPostponeMessage] = React.useState<IMessage | undefined>();
     const [isLoadingMore, setLoadingMore] = React.useState(false);
     const {messagesStore, appStore} = useStores();
     const messages = messagesStore.get(appId);
@@ -61,6 +63,8 @@ const Messages = observer(() => {
         <Message
             key={message.id}
             fDelete={() => deleteMessage(message)}
+            fPostpone={() => setPostponeMessage(message)}
+            postponedAt={message.postponed_at}
             onExpand={(expanded) => (expandedState.current[message.id] = expanded)}
             title={message.title}
             date={message.date}
@@ -155,6 +159,16 @@ const Messages = observer(() => {
                     text={'Delete all messages?'}
                     fClose={() => setDeleteAll(false)}
                     fOnSubmit={() => messagesStore.removeByApp(appId)}
+                />
+            )}
+            {postponeMessage && (
+                <DateTimeDialog
+                    title="Postpone message"
+                    defaultDatetime={postponeMessage.postponed_at}
+                    fClose={() => setPostponeMessage(undefined)}
+                    fOnSubmit={(postponedAt) =>
+                        messagesStore.postponeSingle(postponeMessage, postponedAt)
+                    }
                 />
             )}
             {pushMessageOpen && app && (

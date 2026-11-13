@@ -72,12 +72,35 @@ export class MessagesStore {
 
     @action
     public publishSingleMessage = (message: IMessage) => {
-        if (this.exists(AllMessages)) {
-            this.stateOf(AllMessages).messages.unshift(message);
+        // a postponed message is already listed when it is delivered
+        [AllMessages, message.appid]
+            .filter((appId) => this.exists(appId))
+            .forEach((appId) => {
+                const messages = this.stateOf(appId).messages;
+                const index = messages.findIndex((existing) => existing.id === message.id);
+                if (index === -1) {
+                    messages.unshift(message);
+                } else {
+                    messages[index] = message;
+                }
+            });
+    };
+
+    @action
+    public postponeSingle = async (message: IMessage, postponedAt: Date | undefined) => {
+        const postponeUrl = `${config.get('url')}message/${message.id}/postpone`;
+        try {
+            if (postponedAt) {
+                await axios.post(postponeUrl, null, {params: {at: postponedAt.toISOString()}});
+                this.snack('Message postponed');
+            } else {
+                await axios.delete(postponeUrl);
+                this.snack('Postponement removed');
+            }
+        } catch {
+            return; // the error is already reported by the axios interceptor
         }
-        if (this.exists(message.appid)) {
-            this.stateOf(message.appid).messages.unshift(message);
-        }
+        this.publishSingleMessage({...message, postponed_at: postponedAt?.toISOString() ?? null});
     };
 
     @action

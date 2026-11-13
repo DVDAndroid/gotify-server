@@ -2,7 +2,7 @@ import {Button, Theme, useMediaQuery, useTheme} from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 import {makeStyles} from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
-import {ExpandLess, ExpandMore} from '@mui/icons-material';
+import {ExpandLess, ExpandMore, History, Schedule, Update} from '@mui/icons-material';
 import Delete from '@mui/icons-material/Delete';
 import React from 'react';
 import TimeAgo from 'react-timeago';
@@ -10,7 +10,7 @@ import Container from '../common/Container';
 import {Markdown} from '../common/Markdown';
 import * as config from '../config';
 import {IMessageExtras} from '../types';
-import {contentType, RenderMode} from './extras';
+import {contentType, RenderMode, url} from './extras';
 import {TimeAgoFormatter} from '../common/TimeAgoFormatter';
 
 const PREVIEW_LENGTH = 500;
@@ -98,7 +98,9 @@ interface IProps {
     content: string;
     priority: number;
     appName: string;
+    postponedAt?: string | null;
     fDelete: VoidFunction;
+    fPostpone: VoidFunction;
     extras?: IMessageExtras;
     expanded: boolean;
     onExpand: (expand: boolean) => void;
@@ -116,8 +118,10 @@ const priorityColor = (priority: number) => {
 
 const Message = ({
     fDelete,
+    fPostpone,
     title,
     date,
+    postponedAt,
     image,
     priority,
     content,
@@ -175,18 +179,24 @@ const Message = ({
                 {smallHeader ? (
                     <HeaderSmall
                         fDelete={fDelete}
+                        fPostpone={fPostpone}
                         title={title}
                         appName={appName}
                         image={image}
                         date={date}
+                        postponedAt={postponedAt}
+                        extras={extras}
                     />
                 ) : (
                     <HeaderWide
                         fDelete={fDelete}
+                        fPostpone={fPostpone}
                         title={title}
                         appName={appName}
                         image={image}
                         date={date}
+                        postponedAt={postponedAt}
+                        extras={extras}
                     />
                 )}
 
@@ -217,13 +227,68 @@ const Message = ({
     );
 };
 
+type HeaderProps = Pick<
+    IProps,
+    'appName' | 'image' | 'fDelete' | 'fPostpone' | 'date' | 'postponedAt' | 'title' | 'extras'
+>;
+
+// The title links to client::notification::click::url if set, see https://gotify.net/docs/msgextras#clickurl
+const Title = ({title, extras}: Pick<IProps, 'title' | 'extras'>) => {
+    const href = url(extras);
+    const text = (
+        <Typography className="title" variant="h5" sx={{lineHeight: 1.2}}>
+            {title}
+        </Typography>
+    );
+    return href ? (
+        <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            style={{color: 'inherit', textDecoration: 'none'}}>
+            {text}
+        </a>
+    ) : (
+        text
+    );
+};
+
+const PostponeButton = ({postponedAt, fPostpone}: Pick<IProps, 'postponedAt' | 'fPostpone'>) => {
+    const {classes} = useStyles();
+    let icon = <Schedule />;
+    let title = 'Postpone message';
+    if (postponedAt) {
+        const postponed = new Date(postponedAt);
+        title = `Postponed to ${postponed.toLocaleString()}`;
+        icon =
+            postponed.getTime() > Date.now() ? (
+                <Update color="info" />
+            ) : (
+                <History color="warning" />
+            );
+    }
+    return (
+        <IconButton
+            onClick={fPostpone}
+            title={title}
+            style={{padding: 14}}
+            className={`${classes.trash} postpone`}
+            size="large">
+            {icon}
+        </IconButton>
+    );
+};
+
 const HeaderWide = ({
     appName,
     image,
     date,
+    postponedAt,
     fDelete,
+    fPostpone,
     title,
-}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'date' | 'title'>) => {
+    extras,
+}: HeaderProps) => {
     const {classes} = useStyles();
 
     return (
@@ -240,16 +305,19 @@ const HeaderWide = ({
                 ) : null}
             </div>
             <div className={classes.headerTitle}>
-                <Typography className="title" variant="h5" sx={{lineHeight: 1.2}}>
-                    {title}
-                </Typography>
+                <Title title={title} extras={extras} />
                 <Typography variant="subtitle1" sx={{fontSize: 12, opacity: 0.7}}>
                     {appName}
                 </Typography>
             </div>
             <Typography variant="body1" className={classes.date}>
-                <TimeAgo date={date} formatter={TimeAgoFormatter.narrow} />
+                <TimeAgo
+                    date={date}
+                    formatter={TimeAgoFormatter.narrow}
+                    title={new Date(date).toLocaleString()}
+                />
             </Typography>
+            <PostponeButton postponedAt={postponedAt} fPostpone={fPostpone} />
             <IconButton
                 onClick={fDelete}
                 style={{padding: 14}}
@@ -264,32 +332,40 @@ const HeaderSmall = ({
     appName,
     image,
     date,
+    postponedAt,
     fDelete,
+    fPostpone,
     title,
-}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'date' | 'title'>) => {
+    extras,
+}: HeaderProps) => {
     const {classes} = useStyles();
 
     return (
         <div className={classes.header}>
             <div className={classes.headerTitle}>
-                <Typography className="title" variant="h5" sx={{lineHeight: 1.2}}>
-                    {title}
-                </Typography>
+                <Title title={title} extras={extras} />
                 <Typography variant="subtitle1" sx={{fontSize: 12, opacity: 0.7}}>
                     {appName}
                 </Typography>
                 <Typography variant="body1" className={classes.date}>
-                    <TimeAgo date={date} formatter={TimeAgoFormatter.long} />
+                    <TimeAgo
+                        date={date}
+                        formatter={TimeAgoFormatter.long}
+                        title={new Date(date).toLocaleString()}
+                    />
                 </Typography>
             </div>
             <div style={{display: 'flex', alignItems: 'end', flexDirection: 'column'}}>
-                <IconButton
-                    onClick={fDelete}
-                    style={{padding: 14}}
-                    className={`${classes.trash} delete`}
-                    size="large">
-                    <Delete />
-                </IconButton>
+                <div style={{display: 'flex'}}>
+                    <PostponeButton postponedAt={postponedAt} fPostpone={fPostpone} />
+                    <IconButton
+                        onClick={fDelete}
+                        style={{padding: 14}}
+                        className={`${classes.trash} delete`}
+                        size="large">
+                        <Delete />
+                    </IconButton>
+                </div>
                 <div style={{width: 30, height: 30}}>
                     {image !== null ? (
                         <img

@@ -11,6 +11,17 @@ export const contentType = (extras?: IMessageExtras): RenderMode => {
     return valid ? type : RenderMode.Plain;
 };
 
+export const url = (extras?: IMessageExtras): string | null => {
+    const click = extract(extras, 'client::notification', 'click');
+    try {
+        // extras are not trusted: only allow web links, never e.g. javascript: urls
+        const parsed = new URL(click?.url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null;
+    } catch {
+        return null;
+    }
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const extract = (extras: IMessageExtras | undefined, key: string, path: string): any => {
     if (!extras) {
