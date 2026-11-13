@@ -15,6 +15,9 @@ backend generates its own. Create them before the clone, or copy them across by 
     # no caddy label anymore
   gotify3:
     # ...
+    labels:
+      caddy: http://gotify3.lan   # v3 app connects here directly, bypassing the splitter
+      caddy.reverse_proxy: "{{upstreams 80}}"
   splitter:
     build: ./splitter   # or your registry image
     restart: unless-stopped
