@@ -12,13 +12,17 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/gotify/server/v3/auth"
 	"github.com/gotify/server/v3/model"
+	"github.com/rs/zerolog/log"
 )
 
 // The MessageDatabase interface for encapsulating database access.
 type MessageDatabase interface {
-	GetMessagesByApplicationSince(appID uint, limit int, since uint) ([]*model.Message, error)
+	GetMessagesByApplicationSince(appID uint, limit int, since uint, postponed *string) ([]*model.Message, error)
 	GetApplicationByID(id uint) (*model.Application, error)
-	GetMessagesByUserSince(userID uint, limit int, since uint) ([]*model.Message, error)
+	GetMessagesByUserSince(userID uint, limit int, since uint, postponed *string) ([]*model.Message, error)
+	UpdateMessagePostponement(id uint, postponedAt *time.Time) error
+	MarkMessagePostponementDelivered(id uint) error
+	GetMessagesToDeliver(now time.Time) ([]*model.Message, error)
 	DeleteMessageByID(id uint) error
 	GetMessageByID(id uint) (*model.Message, error)
 	DeleteMessagesByUser(userID uint) error
@@ -40,8 +44,9 @@ type MessageAPI struct {
 }
 
 type pagingParams struct {
-	Limit int  `form:"limit" binding:"min=1,max=200"`
-	Since uint `form:"since" binding:"min=0"`
+	Limit     int     `form:"limit" binding:"min=1,max=200"`
+	Since     uint    `form:"since" binding:"min=0"`
+	Postponed *string `form:"postponed"`
 }
 
 // GetMessages returns all messages from a user.
@@ -68,6 +73,11 @@ type pagingParams struct {
 //	  required: false
 //	  type: integer
 //	  format: int64
+//	- name: postponed
+//	  in: query
+//	  description: "return all (all), only postponed (true) or only not postponed (false) messages"
+//	  required: false
+//	  type: string
 //	responses:
 //	  200:
 //	    description: Ok
@@ -89,7 +99,7 @@ func (a *MessageAPI) GetMessages(ctx *gin.Context) {
 	userID := auth.GetUserID(ctx)
 	withPaging(ctx, func(params *pagingParams) {
 		// the +1 is used to check if there are more messages and will be removed on buildWithPaging
-		messages, err := a.DB.GetMessagesByUserSince(userID, params.Limit+1, params.Since)
+		messages, err := a.DB.GetMessagesByUserSince(userID, params.Limit+1, params.Since, params.Postponed)
 		if success := successOrAbort(ctx, 500, err); !success {
 			return
 		}
@@ -152,6 +162,11 @@ func withPaging(ctx *gin.Context, f func(pagingParams *pagingParams)) {
 //	  required: false
 //	  type: integer
 //	  format: int64
+//	- name: postponed
+//	  in: query
+//	  description: "return all (all), only postponed (true) or only not postponed (false) messages"
+//	  required: false
+//	  type: string
 //	responses:
 //	  200:
 //	    description: Ok
@@ -182,7 +197,7 @@ func (a *MessageAPI) GetMessagesWithApplication(ctx *gin.Context) {
 			}
 			if app != nil && app.UserID == auth.GetUserID(ctx) {
 				// the +1 is used to check if there are more messages and will be removed on buildWithPaging
-				messages, err := a.DB.GetMessagesByApplicationSince(id, params.Limit+1, params.Since)
+				messages, err := a.DB.GetMessagesByApplicationSince(id, params.Limit+1, params.Since, params.Postponed)
 				if success := successOrAbort(ctx, 500, err); !success {
 					return
 				}
@@ -396,16 +411,176 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 	if success := successOrAbort(ctx, 500, a.DB.CreateMessage(msgInternal)); !success {
 		return
 	}
-	a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal))
+	if msgInternal.PostponedAt != nil {
+		a.schedule(msgInternal.ID, *msgInternal.PostponedAt)
+	} else {
+		a.Notifier.Notify(auth.GetUserID(ctx), toExternalMessage(msgInternal))
+	}
 	ctx.JSON(200, toExternalMessage(msgInternal))
+}
+
+// PostponeMessage postpones the push of a message to the given date.
+// swagger:operation POST /message/{id}/postpone message postponeMessage
+//
+// Postpone a message.
+//
+//	---
+//	security: [clientTokenAuthorizationHeader: [], clientTokenHeader: [], clientTokenQuery: [], basicAuth: []]
+//	parameters:
+//	- name: id
+//	  in: path
+//	  description: the message id
+//	  required: true
+//	  type: integer
+//	  format: int64
+//	- name: at
+//	  in: query
+//	  description: the date to postpone the message to, in RFC3339 format. Must be in the future.
+//	  required: true
+//	  type: string
+//	  format: date-time
+//	responses:
+//	  200:
+//	    description: Ok
+//	  400:
+//	    description: Bad Request
+//	    schema:
+//	        $ref: "#/definitions/Error"
+//	  401:
+//	    description: Unauthorized
+//	    schema:
+//	        $ref: "#/definitions/Error"
+//	  403:
+//	    description: Forbidden
+//	    schema:
+//	        $ref: "#/definitions/Error"
+//	  404:
+//	    description: Not Found
+//	    schema:
+//	        $ref: "#/definitions/Error"
+func (a *MessageAPI) PostponeMessage(ctx *gin.Context) {
+	at := ctx.Query("at")
+	if at == "" {
+		ctx.AbortWithError(400, errors.New("at parameter is required"))
+		return
+	}
+	postponedAt, err := time.Parse(time.RFC3339, at)
+	if err != nil {
+		ctx.AbortWithError(400, errors.New("invalid time format, use RFC3339"))
+		return
+	}
+	if postponedAt.Before(timeNow()) {
+		ctx.AbortWithError(400, errors.New("postponed time must be in the future"))
+		return
+	}
+	a.postponeMessage(ctx, &postponedAt)
+}
+
+// DeleteMessagePostponement removes the postponement of a message.
+// swagger:operation DELETE /message/{id}/postpone message deleteMessagePostponement
+//
+// Remove the postponement of a message.
+//
+//	---
+//	security: [clientTokenAuthorizationHeader: [], clientTokenHeader: [], clientTokenQuery: [], basicAuth: []]
+//	parameters:
+//	- name: id
+//	  in: path
+//	  description: the message id
+//	  required: true
+//	  type: integer
+//	  format: int64
+//	responses:
+//	  200:
+//	    description: Ok
+//	  401:
+//	    description: Unauthorized
+//	    schema:
+//	        $ref: "#/definitions/Error"
+//	  403:
+//	    description: Forbidden
+//	    schema:
+//	        $ref: "#/definitions/Error"
+//	  404:
+//	    description: Not Found
+//	    schema:
+//	        $ref: "#/definitions/Error"
+func (a *MessageAPI) DeleteMessagePostponement(ctx *gin.Context) {
+	a.postponeMessage(ctx, nil)
+}
+
+func (a *MessageAPI) postponeMessage(ctx *gin.Context, postponedAt *time.Time) {
+	withID(ctx, "id", func(id uint) {
+		msg, err := a.DB.GetMessageByID(id)
+		if success := successOrAbort(ctx, 500, err); !success {
+			return
+		}
+		if msg == nil {
+			ctx.AbortWithError(404, errors.New("message does not exist"))
+			return
+		}
+		app, err := a.DB.GetApplicationByID(msg.ApplicationID)
+		if success := successOrAbort(ctx, 500, err); !success {
+			return
+		}
+		if app == nil || app.UserID != auth.GetUserID(ctx) {
+			ctx.AbortWithError(404, errors.New("message does not exist"))
+			return
+		}
+		if success := successOrAbort(ctx, 500, a.DB.UpdateMessagePostponement(id, postponedAt)); !success {
+			return
+		}
+		if postponedAt != nil {
+			a.schedule(id, *postponedAt)
+		}
+	})
+}
+
+// schedule pushes the message to its user at the given date. Timers are never cancelled:
+// deliver ignores a timer if the message was deleted or postponed to another date meanwhile.
+func (a *MessageAPI) schedule(id uint, at time.Time) {
+	time.AfterFunc(time.Until(at), func() { a.deliver(id, at) })
+}
+
+func (a *MessageAPI) deliver(id uint, at time.Time) {
+	msg, err := a.DB.GetMessageByID(id)
+	if err != nil {
+		log.Error().Err(err).Uint("message", id).Msg("Cannot load postponed message")
+		return
+	}
+	// ponytail: 1s tolerance, because some databases do not store sub-second precision.
+	if msg == nil || msg.PostponedAt == nil || msg.PostponedAt.Sub(at).Abs() >= time.Second {
+		return
+	}
+	app, err := a.DB.GetApplicationByID(msg.ApplicationID)
+	if err != nil || app == nil {
+		log.Error().Err(err).Uint("message", id).Msg("Cannot load application of postponed message")
+		return
+	}
+	a.Notifier.Notify(app.UserID, toExternalMessage(msg))
+	if err := a.DB.MarkMessagePostponementDelivered(id); err != nil {
+		log.Error().Err(err).Uint("message", id).Msg("Cannot mark postponed message as delivered")
+	}
+}
+
+// ScheduleAll schedules all postponed messages which were not delivered yet, call it on startup.
+// Messages missed while the server was not running are delivered immediately.
+func (a *MessageAPI) ScheduleAll() error {
+	messages, err := a.DB.GetMessagesToDeliver(timeNow())
+	for _, msg := range messages {
+		a.schedule(msg.ID, *msg.PostponedAt)
+	}
+	return err
 }
 
 func toInternalMessage(msg *model.CreateMessage) *model.Message {
 	res := &model.Message{
-		ApplicationID: msg.ApplicationID,
-		Message:       msg.Message,
-		Title:         msg.Title,
-		Date:          timeNow(),
+		ApplicationID:   msg.ApplicationID,
+		Message:         msg.Message,
+		Title:           msg.Title,
+		Date:            timeNow(),
+		PostponedAt:     msg.PostponedAt,
+		PostponePending: msg.PostponedAt != nil,
 	}
 	if msg.Priority != nil {
 		res.Priority = *msg.Priority
@@ -425,6 +600,7 @@ func toExternalMessage(msg *model.Message) *model.MessageExternal {
 		Title:         msg.Title,
 		Priority:      &msg.Priority,
 		Date:          msg.Date,
+		PostponedAt:   msg.PostponedAt,
 	}
 	if len(msg.Extras) != 0 {
 		res.Extras = make(map[string]any)

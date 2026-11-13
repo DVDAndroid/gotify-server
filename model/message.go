@@ -13,6 +13,10 @@ type Message struct {
 	Priority      int
 	Extras        []byte
 	Date          time.Time
+	PostponedAt   *time.Time
+	// PostponePending is true until the postponed message was pushed to the clients.
+	// It is a separate flag, because PostponedAt is kept after the delivery.
+	PostponePending bool
 }
 
 // MessageExternal Model
@@ -63,6 +67,10 @@ type MessageExternal struct {
 	// required: true
 	// example: 2018-02-27T19:36:10.5045044+01:00
 	Date time.Time `json:"date"`
+	// The date the message is postponed to. Messages are pushed to clients at this date.
+	//
+	// example: 2018-02-27T19:36:10.5045044+01:00
+	PostponedAt *time.Time `form:"postponed_at" query:"postponed_at" json:"postponed_at"`
 }
 
 // CreateMessage Model
@@ -99,4 +107,8 @@ type CreateMessage struct {
 	//
 	// example: {"home::appliances::thermostat::change_temperature":{"temperature":23},"home::appliances::lighting::on":{"brightness":15}}
 	Extras map[string]any `form:"-" query:"-" json:"extras,omitempty"`
+	// The date the message is postponed to. The message is pushed to clients at this date.
+	//
+	// example: 2018-02-27T19:36:10.5045044+01:00
+	PostponedAt *time.Time `form:"postponed_at" query:"postponed_at" json:"postponed_at"`
 }

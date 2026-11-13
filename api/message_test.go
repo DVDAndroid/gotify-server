@@ -28,6 +28,7 @@ type MessageSuite struct {
 	ctx             *gin.Context
 	recorder        *httptest.ResponseRecorder
 	notifiedMessage *model.MessageExternal
+	notifiedUser    uint
 }
 
 func (s *MessageSuite) BeforeTest(suiteName, testName string) {
@@ -46,6 +47,7 @@ func (s *MessageSuite) AfterTest(string, string) {
 
 func (s *MessageSuite) Notify(userID uint, msg *model.MessageExternal) {
 	s.notifiedMessage = msg
+	s.notifiedUser = userID
 }
 
 func (s *MessageSuite) Test_ensureCorrectJsonRepresentation() {
@@ -61,7 +63,7 @@ func (s *MessageSuite) Test_ensureCorrectJsonRepresentation() {
 		}}},
 	}
 	test.JSONEquals(s.T(), actual, `{"paging": {"limit":5, "since": 122, "size": 5, "next": "/message?limit=5&since=122"},
-                                              "messages": [{"id":55,"appid":2,"message":"hi","title":"hi","priority":4,"date":"2017-01-02T00:00:00Z","extras":{"test::string":"string","test::array":[1,2,3],"test::int":1,"test::float":0.5}}]}`)
+                                              "messages": [{"id":55,"appid":2,"message":"hi","title":"hi","priority":4,"date":"2017-01-02T00:00:00Z","postponed_at":null,"extras":{"test::string":"string","test::array":[1,2,3],"test::int":1,"test::float":0.5}}]}`)
 }
 
 func (s *MessageSuite) Test_GetMessages() {

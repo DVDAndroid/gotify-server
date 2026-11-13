@@ -92,6 +92,9 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 		CrossOrigin:      http.NewCrossOriginProtection(),
 	}
 	messageHandler := api.MessageAPI{Notifier: streamHandler, DB: db}
+	if err := messageHandler.ScheduleAll(); err != nil {
+		log.Error().Err(err).Msg("Cannot schedule postponed messages")
+	}
 	healthHandler := api.HealthAPI{DB: db}
 	clientHandler := api.ClientAPI{
 		DB:            db,
@@ -233,6 +236,8 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 			message.GET("", messageHandler.GetMessages)
 			message.DELETE("", messageHandler.DeleteMessages)
 			message.DELETE("/:id", messageHandler.DeleteMessage)
+			message.POST("/:id/postpone", messageHandler.PostponeMessage)
+			message.DELETE("/:id/postpone", messageHandler.DeleteMessagePostponement)
 		}
 
 		clientAuth.GET("/stream", streamHandler.Handle)

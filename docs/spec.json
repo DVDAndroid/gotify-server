@@ -489,6 +489,12 @@
             "description": "return all messages with an ID less than this value",
             "name": "since",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "return all (all), only postponed (true) or only not postponed (false) messages",
+            "name": "postponed",
+            "in": "query"
           }
         ],
         "responses": {
@@ -1492,6 +1498,12 @@
             "description": "return all messages with an ID less than this value",
             "name": "since",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "return all (all), only postponed (true) or only not postponed (false) messages",
+            "name": "postponed",
+            "in": "query"
           }
         ],
         "responses": {
@@ -1680,6 +1692,130 @@
             "schema": {
               "$ref": "#/definitions/Error"
             }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/message/{id}/postpone": {
+      "post": {
+        "security": [
+          {
+            "clientTokenAuthorizationHeader": []
+          },
+          {
+            "clientTokenHeader": []
+          },
+          {
+            "clientTokenQuery": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "tags": [
+          "message"
+        ],
+        "summary": "Postpone a message.",
+        "operationId": "postponeMessage",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "the message id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date-time",
+            "description": "the date to postpone the message to, in RFC3339 format. Must be in the future.",
+            "name": "at",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "clientTokenAuthorizationHeader": []
+          },
+          {
+            "clientTokenHeader": []
+          },
+          {
+            "clientTokenQuery": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "tags": [
+          "message"
+        ],
+        "summary": "Remove the postponement of a message.",
+        "operationId": "deleteMessagePostponement",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "the message id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
           },
           "401": {
             "description": "Unauthorized",
@@ -2787,6 +2923,13 @@
           "x-go-name": "Message",
           "example": "**Backup** was successfully finished."
         },
+        "postponed_at": {
+          "description": "The date the message is postponed to. The message is pushed to clients at this date.",
+          "type": "string",
+          "format": "date-time",
+          "x-go-name": "PostponedAt",
+          "example": "2018-02-27T19:36:10.5045044+01:00"
+        },
         "priority": {
           "description": "The priority of the message. If unset, then the default priority of the\napplication will be used.",
           "type": "integer",
@@ -3069,6 +3212,13 @@
           "type": "string",
           "x-go-name": "Message",
           "example": "**Backup** was successfully finished."
+        },
+        "postponed_at": {
+          "description": "The date the message is postponed to. Messages are pushed to clients at this date.",
+          "type": "string",
+          "format": "date-time",
+          "x-go-name": "PostponedAt",
+          "example": "2018-02-27T19:36:10.5045044+01:00"
         },
         "priority": {
           "description": "The priority of the message. If unset, then the default priority of the\napplication will be used.",
