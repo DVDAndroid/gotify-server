@@ -1746,8 +1746,7 @@
           },
           {
             "type": "string",
-            "format": "date-time",
-            "description": "the date to postpone the message to, in RFC3339 format. Must be in the future.",
+            "description": "the date to postpone the message to, in RFC3339 format with seconds, e.g. 2026-11-13T10:00:00+01:00. Must be in the future.",
             "name": "at",
             "in": "query",
             "required": true

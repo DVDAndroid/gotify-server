@@ -435,10 +435,9 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 //	  format: int64
 //	- name: at
 //	  in: query
-//	  description: the date to postpone the message to, in RFC3339 format. Must be in the future.
+//	  description: "the date to postpone the message to, in RFC3339 format with seconds, e.g. 2026-11-13T10:00:00+01:00. Must be in the future."
 //	  required: true
 //	  type: string
-//	  format: date-time
 //	responses:
 //	  200:
 //	    description: Ok
